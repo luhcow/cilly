@@ -10,6 +10,7 @@
 //feature 1. ---正确的syn 2. 通过链表维护内存 3. ---正确识别字符串 4. ---清除注释
 
 const char* keywords[keywords_MAX] = {
+    // 字面值: 标识符, 字符, 字符串, 数字
     "identifier", "character", "string", "number",
     // 关键字
     "signed", "unsigned",
@@ -46,11 +47,49 @@ const char* operators[operators_MAX] = {
     ">", ">=", ">>",
 };
 
+typedef enum
+{
+    // single-character tokens
+    TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,		// '(', ')'
+    TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,	// '[', ']'
+    TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,  		// '{', '}'
+    TOKEN_COMMA, TOKEN_DOT, TOKEN_SEMICOLON,	// ',', '.', ';'
+    TOKEN_TILDE,  // '~'
+    // one or two character tokens
+    TOKEN_PLUS, TOKEN_PLUS_PLUS, TOKEN_PLUS_EQUAL, // '+', '++', '+='
+    // '-', '--', '-=', '->'
+    TOKEN_MINUS, TOKEN_MINUS_MINUS, TOKEN_MINUS_EQUAL, TOKEN_MINUS_GREATER,
+    TOKEN_STAR, TOKEN_STAR_EQUAL,				// '*', '*='
+    TOKEN_SLASH, TOKEN_SLASH_EQUAL, 		// '/', '/=', 
+    TOKEN_PERCENT, TOKEN_PERCENT_EQUAL, // '%', '%='
+    TOKEN_AMPER, TOKEN_AMPER_EQUAL, TOKEN_AMPER_AMPER, // '&', '&=', '&&'
+    TOKEN_PIPE, TOKEN_PIPE_EQUAL, TOKEN_PIPE_PIPE,	// '|', '|=', '||'
+    TOKEN_HAT, TOKEN_HAT_EQUAL, // '^', '^='
+    TOKEN_EQUAL, TOKEN_EQUAL_EQUAL, // '=', '=='
+    TOKEN_BANG, TOKEN_BANG_EQUAL,	  // '!', '!='
+    TOKEN_LESS, TOKEN_LESS_EQUAL, TOKEN_LESS_LESS, 	// '<', '<=', '<<'
+    TOKEN_GREATER, TOKEN_GREATER_EQUAL, TOKEN_GREATER_GREATER, // '>', '>=', '>>'
+    // 字面值: 标识符, 字符, 字符串, 数字
+    TOKEN_IDENTIFIER, TOKEN_CHARACTER, TOKEN_STRING, TOKEN_NUMBER,
+    // 关键字
+    TOKEN_SIGNED, TOKEN_UNSIGNED,
+    TOKEN_CHAR, TOKEN_SHORT, TOKEN_INT, TOKEN_LONG,
+    TOKEN_FLOAT, TOKEN_DOUBLE,
+    TOKEN_STRUCT, TOKEN_UNION, TOKEN_ENUM, TOKEN_VOID,
+    TOKEN_IF, TOKEN_ELSE, TOKEN_SWITCH, TOKEN_CASE, TOKEN_DEFAULT,
+    TOKEN_WHILE, TOKEN_DO, TOKEN_FOR,
+    TOKEN_BREAK, TOKEN_CONTINUE, TOKEN_RETURN, TOKEN_GOTO,
+    TOKEN_CONST, TOKEN_SIZEOF, TOKEN_TYPEDEF,
+    // 辅助Token
+    TOKEN_ERROR, TOKEN_EOF, TOKEN_, TOKEN_KEYWORD, TOKEN_OPERATOR
+} TokenType;
+
 struct Lex
 {
     char* lex;
     int now;
     int max;
+    TokenType type;// 字面值: 标识符, 字符, 字符串, 数字
 };//用来储存未完成和已完成的词
 
 typedef struct Token
@@ -71,7 +110,7 @@ int find_operators(char word[])
     for (int i = 0; i < operators_MAX; i++)
     {
         if (strcmp(word, operators[i]) == 0)
-            return i + keywords_MAX + 1;
+            return i;
     }
     return 0;
 }
@@ -81,7 +120,7 @@ int find_keyWords(char word[])
     for (int i = 0; i < keywords_MAX; i++)
     {
         if (strcmp(word, keywords[i]) == 0)
-            return i + 1;
+            return i + TOKEN_SIGNED;
     }
     return 0;
 }
@@ -159,8 +198,10 @@ int clear_comments(char text[], int count)
 int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 token 的 syn 以及双目运算符
 {
     int syn, tempsyn;
-    if ((syn = find_operators(tk->lex)) > 0)
+    switch (tk->type)
     {
+    case TOKEN_OPERATOR:
+        syn = find_operators(tk->lex);
         if (L->now > 0)
         {
             char* temp = (char*)malloc(sizeof(L->tok[L->now - 1].lex));
@@ -174,10 +215,19 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
                 L->now--;
             }
         }
-    }
-    else
-    {
-        syn = find_keyWords(tk->lex);
+        break;
+    case TOKEN_KEYWORD:
+        if (syn = find_keyWords(tk->lex))
+            ;
+        else
+            syn = TOKEN_IDENTIFIER;
+        break;
+    case TOKEN_NUMBER: case TOKEN_CHAR: case TOKEN_STRING:
+        syn = tk->type;
+        break;
+
+    default:
+        break;
     }
     for (int i = 0; i <= tk->now; i++)
         L->tok[L->now].lex[i] = tk->lex[i];
@@ -199,6 +249,7 @@ void analyzer(char* text, char* argv[])
     lex.lex = (char*)malloc(127 * sizeof(char));
     lex.max = 30;
     lex.now = 0;
+    lex.type = TOKEN_;
     lex.lex[0] = '\0';
 
     for (int i = 0, expression = 0; text[i] != -1 && expression != 9; )
@@ -231,22 +282,32 @@ void analyzer(char* text, char* argv[])
             }
             else if (t == ' ')
             {
+                lex.type = TOKEN_KEYWORD;
                 expression = 3;
             }
             else
+            {
+                lex.type = TOKEN_KEYWORD;
                 expression = 5;
+            }
             break;
         case 2://数字
-            if (isdigit(t))
+            if (isalnum(t))
             {
                 lex_push_back(&lex, t);
                 expression = 2;
                 i++;
             }
             else if (t == ' ')
+            {
+                lex.type = TOKEN_NUMBER;
                 expression = 3;
+            }
             else
+            {
+                lex.type = TOKEN_NUMBER;
                 expression = 5;
+            }
             break;
         case 3://token结束时为空格，token正常结束
             tokenlist_pushback(&tokenlist, &lex);
@@ -267,6 +328,7 @@ void analyzer(char* text, char* argv[])
             }
             else
             {
+                lex.type = TOKEN_OPERATOR;
                 tokenlist_pushback(&tokenlist, &lex);
                 printf("get %s\t", lex.lex);
                 lex.now = 0;
@@ -280,13 +342,21 @@ void analyzer(char* text, char* argv[])
             printf("get %s\t", lex.lex);
             lex.now = 0;
             lex.lex[0] = '\0';
+            lex.type = TOKEN_;
             expression = 0;
 
             break;
         case 6://字符串处理，第一个引号已经在 case 4 处理		
             lex_push_back(&lex, t);
-            if (t == '\"' || t == '\'')//字符串结束，这个 text 已经 pushback 了
+            if (t == '\"')//字符串结束，这个 text 已经 pushback 了
             {
+                lex.type = TOKEN_STRING;
+                expression = 3;
+                break;
+            }
+            else if (t == '\'')
+            {
+                lex.type = TOKEN_CHAR;
                 expression = 3;
                 break;
             }
@@ -325,7 +395,7 @@ void analyzer(char* text, char* argv[])
             }
             else
             {
-                printf("非预期的字符，终止");
+                printf("非预期的字符");
                 exit(1);
             }
         default:
@@ -335,42 +405,7 @@ void analyzer(char* text, char* argv[])
     }
 }
 
-typedef enum
-{
-    // single-character tokens
-    TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,		// '(', ')'
-    TOKEN_LEFT_BRACKET, TOKEN_RIGHT_BRACKET,	// '[', ']'
-    TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,  		// '{', '}'
-    TOKEN_COMMA, TOKEN_DOT, TOKEN_SEMICOLON,	// ',', '.', ';'
-    TOKEN_TILDE,  // '~'
-    // one or two character tokens
-    TOKEN_PLUS, TOKEN_PLUS_PLUS, TOKEN_PLUS_EQUAL, // '+', '++', '+='
-    // '-', '--', '-=', '->'
-    TOKEN_MINUS, TOKEN_MINUS_MINUS, TOKEN_MINUS_EQUAL, TOKEN_MINUS_GREATER,
-    TOKEN_STAR, TOKEN_STAR_EQUAL,				// '*', '*='
-    TOKEN_SLASH, TOKEN_SLASH_EQUAL, 		// '/', '/=', 
-    TOKEN_PERCENT, TOKEN_PERCENT_EQUAL, // '%', '%='
-    TOKEN_AMPER, TOKEN_AMPER_EQUAL, TOKEN_AMPER_AMPER, // '&', '&=', '&&'
-    TOKEN_PIPE, TOKEN_PIPE_EQUAL, TOKEN_PIPE_PIPE,	// '|', '|=', '||'
-    TOKEN_HAT, TOKEN_HAT_EQUAL, // '^', '^='
-    TOKEN_EQUAL, TOKEN_EQUAL_EQUAL, // '=', '=='
-    TOKEN_BANG, TOKEN_BANG_EQUAL,	  // '!', '!='
-    TOKEN_LESS, TOKEN_LESS_EQUAL, TOKEN_LESS_LESS, 	// '<', '<=', '<<'
-    TOKEN_GREATER, TOKEN_GREATER_EQUAL, TOKEN_GREATER_GREATER, // '>', '>=', '>>'
-    // 字面值: 标识符, 字符, 字符串, 数字
-    TOKEN_IDENTIFIER, TOKEN_CHARACTER, TOKEN_STRING, TOKEN_NUMBER,
-    // 关键字
-    TOKEN_SIGNED, TOKEN_UNSIGNED,
-    TOKEN_CHAR, TOKEN_SHORT, TOKEN_INT, TOKEN_LONG,
-    TOKEN_FLOAT, TOKEN_DOUBLE,
-    TOKEN_STRUCT, TOKEN_UNION, TOKEN_ENUM, TOKEN_VOID,
-    TOKEN_IF, TOKEN_ELSE, TOKEN_SWITCH, TOKEN_CASE, TOKEN_DEFAULT,
-    TOKEN_WHILE, TOKEN_DO, TOKEN_FOR,
-    TOKEN_BREAK, TOKEN_CONTINUE, TOKEN_RETURN, TOKEN_GOTO,
-    TOKEN_CONST, TOKEN_SIZEOF, TOKEN_TYPEDEF,
-    // 辅助Token
-    TOKEN_ERROR, TOKEN_EOF
-} TokenType;
+
 
 typedef enum
 {
