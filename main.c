@@ -7,7 +7,7 @@
 
 #define keywords_MAX  33
 #define operators_MAX  41
-//feature 1. ---正确的syn 2. 通过链表维护内存 3. ---正确识别字符串 4. ---清除注释
+//feature 1. 内存管理 2. 错误处理 3. 行列号
 
 const char* keywords[keywords_MAX] = {
     // 字面值: 标识符, 字符, 字符串, 数字
@@ -84,25 +84,36 @@ typedef enum
     TOKEN_ERROR, TOKEN_EOF, TOKEN_, TOKEN_KEYWORD, TOKEN_OPERATOR
 } TokenType;
 
+struct line_con
+{
+    unsigned int line;
+    unsigned int con;
+};
+
 struct Lex
 {
     char* lex;
     int now;
     int max;
     TokenType type;// 字面值: 标识符, 字符, 字符串, 数字
+    struct line_con begin;
+    struct line_con end;
 };//用来储存未完成和已完成的词
 
-typedef struct Token
+typedef struct token_node
 {
-    char lex[127];
+    char lex[255];
     int syn;
+    struct line_con begin;
+    struct line_con end;
+    token* next;
 }token;//每个分析完成的二元组
 
 typedef struct Tokenlist
 {
-    token* tok;
+    token* next;
+    token* tail;
     int now;
-    int max;
 }TokenList;//二元组的数组
 
 int find_operators(char word[])
@@ -204,15 +215,17 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
         syn = find_operators(tk->lex);
         if (L->now > 0)
         {
-            char* temp = (char*)malloc(sizeof(L->tok[L->now - 1].lex));
-            strcpy(temp, L->tok[L->now - 1].lex);
+            char temp[4];
+            strcpy(temp, L->tail->lex);
             strcat(temp, tk->lex);
             if ((tempsyn = find_operators(temp)) > 0)
             {
                 syn = tempsyn;
                 tk->now = sizeof(temp) - 1;
-                strcpy(tk->lex, temp);
-                L->now--;
+                strcpy(L->tail->lex, temp);
+                L->tail->end = tk->end;
+                L->tail->syn = syn;
+                return 0;
             }
         }
         break;
@@ -229,28 +242,36 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
     default:
         break;
     }
-    for (int i = 0; i <= tk->now; i++)
-        L->tok[L->now].lex[i] = tk->lex[i];
-    L->tok[L->now].syn = syn;
-    L->now++;
+
+    L->tail->next = (token*)malloc(sizeof(token));
+    L->tail = L->tail->next;
+    L->tail->syn = syn;
+    strcpy(L->tail->lex, tk->lex);
+    L->tail->next = NULL;
+    L->tail->begin = tk->begin;
+    L->tail->end = tk->end;
 
     return 0;
 
 }
 void analyzer(char* text, char* argv[])
 {
-    TokenList tokenlist;//初始化token和token链
-    tokenlist.tok = (token*)malloc(3000 * sizeof(token));
-    //tokenlist.tok->lex= (char*)malloc(300 * sizeof(char));
-    tokenlist.tok->syn = 0;
-    tokenlist.max = 3000;
-    tokenlist.now = 0;
+    //初始化token和token链
+    TokenList* tokenlist = (TokenList*)malloc(sizeof(TokenList));
+    tokenlist->now = 0;
+    tokenlist->next = NULL;
+    tokenlist->tail = tokenlist;
+
     struct Lex lex;
     lex.lex = (char*)malloc(127 * sizeof(char));
     lex.max = 30;
     lex.now = 0;
     lex.type = TOKEN_;
     lex.lex[0] = '\0';
+    lex.begin.line = 0;
+    lex.begin.con = 0;
+    lex.end.line = 0;
+    lex.end.con = 0;
 
     for (int i = 0, expression = 0; text[i] != -1 && expression != 9; )
     {
@@ -381,12 +402,13 @@ void analyzer(char* text, char* argv[])
                     exit(3);
                 }
                 // 拷贝数据
-                for (int i = 0; i < tokenlist.now; i++)
+                TokenList* temp = tokenlist;
+                while (temp->next != NULL)
                 {
-                    {
-                        fprintf(out, "(%s, %d)\t", tokenlist.tok[i].lex, tokenlist.tok[i].syn);
-                    }
+                    fprintf(out, "{%s, %d,(begin lin: %d con: %d , end lin: %d con: %d)}\t", temp->next->lex, temp->next->syn, temp->next->begin.line, temp->next->begin.con, temp->next->end.line, temp->next->end.con);
+                    temp = temp->next;
                 }
+                fprintf(out, "\n");
                 //putchar(EOF);
                 // 收尾工作
                 if (fclose(out) != 0)
