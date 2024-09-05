@@ -106,12 +106,12 @@ typedef struct token_node
     int syn;
     struct line_con begin;
     struct line_con end;
-    token* next;
+    struct token_node* next;
 }token;//每个分析完成的二元组
 
 typedef struct Tokenlist
 {
-    token* next;
+    token* head;
     token* tail;
     int now;
 }TokenList;//二元组的数组
@@ -254,13 +254,14 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
     return 0;
 
 }
-void analyzer(char* text, char* argv[])
+int analyzer(char* text, char* argv[])
 {
     //初始化token和token链
     TokenList* tokenlist = (TokenList*)malloc(sizeof(TokenList));
     tokenlist->now = 0;
-    tokenlist->next = NULL;
-    tokenlist->tail = tokenlist;
+    tokenlist->head = (token*)malloc(sizeof(token));
+    tokenlist->head->next = NULL;
+    tokenlist->tail = tokenlist->head;
 
     struct Lex lex;
     lex.lex = (char*)malloc(127 * sizeof(char));
@@ -331,7 +332,7 @@ void analyzer(char* text, char* argv[])
             }
             break;
         case 3://token结束时为空格，token正常结束
-            tokenlist_pushback(&tokenlist, &lex);
+            tokenlist_pushback(tokenlist, &lex);
             printf("get %s\t", lex.lex);
             lex.now = 0;
             lex.lex[0] = '\0';
@@ -350,7 +351,7 @@ void analyzer(char* text, char* argv[])
             else
             {
                 lex.type = TOKEN_OPERATOR;
-                tokenlist_pushback(&tokenlist, &lex);
+                tokenlist_pushback(tokenlist, &lex);
                 printf("get %s\t", lex.lex);
                 lex.now = 0;
                 lex.lex[0] = '\0';
@@ -359,7 +360,7 @@ void analyzer(char* text, char* argv[])
             }
             break;
         case 5://这个字符送进first word 重新处理
-            tokenlist_pushback(&tokenlist, &lex);
+            tokenlist_pushback(tokenlist, &lex);
             printf("get %s\t", lex.lex);
             lex.now = 0;
             lex.lex[0] = '\0';
@@ -402,7 +403,7 @@ void analyzer(char* text, char* argv[])
                     exit(3);
                 }
                 // 拷贝数据
-                TokenList* temp = tokenlist;
+                token* temp = tokenlist->head;
                 while (temp->next != NULL)
                 {
                     fprintf(out, "{%s, %d,(begin lin: %d con: %d , end lin: %d con: %d)}\t", temp->next->lex, temp->next->syn, temp->next->begin.line, temp->next->begin.con, temp->next->end.line, temp->next->end.con);
