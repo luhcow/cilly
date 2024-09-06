@@ -1,4 +1,4 @@
-//feature 
+//feature 1. 转义序列 2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理
 
 #include <stdio.h>
 #include <ctype.h>
@@ -7,7 +7,6 @@
 
 #define keywords_MAX  33
 #define operators_MAX  41
-
 
 const char* keywords[keywords_MAX] = {
     // 字面值: 标识符, 字符, 字符串, 数字
@@ -278,9 +277,9 @@ int analyzer(char* text, char* argv[])
 
     for (int i = 0, expression = 0, con = 1, line = 1; text[i] != -1 && expression != 9; )
     {
-        // 0 first word 1 word 2 num 3 token结束时为空格 4 各类符号  8 异常处理
-        //5 token结束时不是空白 6 ""''字符串
-        //预期不出现除 \n \t之外的空白符制表符，全部按照异常处理
+        // 0 first word 1 关键字和标识符 2 数值字面量 3 token 结束时为 space 4 各类符号  
+        //5 token结束时不是 space 6 ""''字符和字符串字面量 8 异常处理和正常结束
+
         char t = text[i];
 
         switch (expression)
@@ -327,7 +326,7 @@ int analyzer(char* text, char* argv[])
                 i++;
                 con++;
             }
-            else if (t == ' ')
+            else if (isspace(t))
             {
                 lex.type = TOKEN_KEYWORD;
                 expression = 3;
@@ -346,7 +345,7 @@ int analyzer(char* text, char* argv[])
                 i++;
                 con++;
             }
-            else if (t == ' ')
+            else if (isspace(t))
             {
                 lex.type = TOKEN_NUMBER;
                 expression = 3;
