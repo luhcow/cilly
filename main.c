@@ -1,4 +1,4 @@
-//feature  2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
+//feature   2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
 
 #include <stdio.h>
 #include <ctype.h>
@@ -91,7 +91,7 @@ struct line_con
 
 struct Lex
 {
-    char* lex;
+    char lex[255];
     int now;
     int max;
     TokenType type;// 字面值: 标识符, 字符, 字符串, 数字
@@ -215,13 +215,13 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
         if (L->now > 0)
         {
             char temp[255];
-            strcpy(temp, L->tail->lex);
-            strcat(temp, tk->lex);
+            strncpy(temp, L->tail->lex, sizeof(temp));
+            strncat(temp, tk->lex, sizeof(temp));
             if ((tempsyn = find_operators(temp)) > 0)
             {
                 syn = tempsyn;
                 tk->now = sizeof(temp) - 1;
-                strcpy(L->tail->lex, temp);
+                strncpy(L->tail->lex, temp, sizeof(temp));
                 L->tail->end = tk->end;
                 L->tail->syn = syn;
                 L->now++;
@@ -244,6 +244,13 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
     }
 
     L->tail->next = (token*)malloc(sizeof(token));
+    if (L->tail->next == NULL)
+    {
+        // 处理内存分配失败的情况
+        // 这里可以根据实际情况进行处理，例如打印错误信息并退出程序
+
+        exit(1);
+    }
     L->tail = L->tail->next;
     L->tail->syn = syn;
     strcpy(L->tail->lex, tk->lex);
@@ -259,13 +266,23 @@ int analyzer(char* text, char* argv[])
 {
     //初始化token和token链
     TokenList* tokenlist = (TokenList*)malloc(sizeof(TokenList));
+    if (tokenlist == NULL)
+    {
+        // 处理内存分配失败的情况
+        return -1;
+    }
     tokenlist->now = 0;
     tokenlist->head = (token*)malloc(sizeof(token));
+    if (tokenlist->head == NULL)
+    {
+        // 处理内存分配失败的情况
+        free(tokenlist);
+        return -1;
+    }
     tokenlist->head->next = NULL;
     tokenlist->tail = tokenlist->head;
 
     struct Lex lex;
-    lex.lex = (char*)malloc(127 * sizeof(char));
     lex.max = 30;
     lex.now = 0;
     lex.type = TOKEN_;
