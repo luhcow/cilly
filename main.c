@@ -1,4 +1,4 @@
-//feature 1. 转义序列 2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理
+//feature  2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
 
 #include <stdio.h>
 #include <ctype.h>
@@ -356,7 +356,7 @@ int analyzer(char* text, char* argv[])
                 expression = 5;
             }
             break;
-        case 3://token结束时为空格，token正常结束
+        case 3://token正常结束
             lex.end.con = con;
             lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
@@ -400,13 +400,13 @@ int analyzer(char* text, char* argv[])
             break;
         case 6://字符串处理，第一个引号已经在 case 4 处理		
             lex_push_back(&lex, t);
-            if (t == '\"')//字符串结束，这个 text 已经 pushback 了
+            if (t == '\"' && lex.lex[lex.now - 1] != '//')//字符串结束，这个 text 已经 pushback 了
             {
                 lex.type = TOKEN_STRING;
                 expression = 3;
                 break;
             }
-            else if (t == '\'')
+            else if (t == '\'' && lex.lex[lex.now - 1] != '//')
             {
                 lex.type = TOKEN_CHAR;
                 expression = 3;
