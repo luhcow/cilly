@@ -7,7 +7,7 @@
 
 #define keywords_MAX  33
 #define operators_MAX  41
-//feature 1. 内存管理 2. 错误处理 3. 行列号
+//feature 1. 内存管理
 
 const char* keywords[keywords_MAX] = {
     // 字面值: 标识符, 字符, 字符串, 数字
@@ -463,9 +463,11 @@ int analyzer(char* text, char* argv[])
     }
 }
 
+const int text_size = 1000000;
+
 int main(int argc, char* argv[])
 {
-    char* text = (char*)malloc(100000 * sizeof(char));
+    char* text = (char*)malloc(text_size * sizeof(char));
     int ch;            // 读取文件时，存储每个字符的地方
     FILE* fp;        // “文件指针”
     unsigned long count = 0;
@@ -484,6 +486,17 @@ int main(int argc, char* argv[])
         putchar(ch);
         text[count] = ch;
         count++;
+        if (count == text_size)
+        {
+            char* p = (char*)realloc(text, (text_size + 1000000) * sizeof(char));
+            if (p != NULL)
+                text = p;
+            else
+            {
+                printf("Error in realloc\n");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
     text[count] = '\0';
     fclose(fp);
