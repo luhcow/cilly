@@ -146,7 +146,6 @@ int lex_push_back(struct Lex* tk, char t)//为词的末尾添加字符，在main
 
 int clear_comments(char text[], int count)
 {
-    char* y = "jjjj";
     int switch_on = 0;
     for (int i = 0; i < count && text[i] != '\0'; )
     {
@@ -196,7 +195,8 @@ int clear_comments(char text[], int count)
                     i = i + 1;
                 }
             }
-            text[i] = ' ';
+            if (text[i] != '\n')
+                text[i] = ' ';
             i++;
             break;
         default:
@@ -215,7 +215,7 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
         syn = find_operators(tk->lex);
         if (L->now > 0)
         {
-            char temp[4];
+            char temp[255];
             strcpy(temp, L->tail->lex);
             strcat(temp, tk->lex);
             if ((tempsyn = find_operators(temp)) > 0)
@@ -225,6 +225,7 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
                 strcpy(L->tail->lex, temp);
                 L->tail->end = tk->end;
                 L->tail->syn = syn;
+                L->now++;
                 return 0;
             }
         }
@@ -250,6 +251,7 @@ int tokenlist_pushback(TokenList* L, struct Lex* tk)//这里还要处理每个 t
     L->tail->next = NULL;
     L->tail->begin = tk->begin;
     L->tail->end = tk->end;
+    L->now++;
 
     return 0;
 
@@ -274,7 +276,7 @@ int analyzer(char* text, char* argv[])
     lex.end.line = 0;
     lex.end.con = 0;
 
-    for (int i = 0, expression = 0; text[i] != -1 && expression != 9; )
+    for (int i = 0, expression = 0, con = 1, line = 1; text[i] != -1 && expression != 9; )
     {
         // 0 first word 1 word 2 num 3 token结束时为空格 4 各类符号  8 异常处理
         //5 token结束时不是空白 6 ""''字符串
@@ -287,13 +289,35 @@ int analyzer(char* text, char* argv[])
             if (!isprint(t) && t != '\n' && t != '\t')//非打印字符
                 expression = 8;
             else if (isalpha(t) || t == '_')//保留字和标识符
+            {
                 expression = 1;
+                lex.begin.con = con;
+                lex.begin.line = line;
+            }
             else if (isdigit(t))//常数
+            {
                 expression = 2;
+                lex.begin.con = con;
+                lex.begin.line = line;
+            }
             else if (isspace(t))//空白，制表符空白符已按照异常处理
+            {
                 i++;//第一个就是space跳过就行了
+                con++;
+                if (t == '\n')
+                {
+                    line++;
+                    con = 1;
+                }
+
+            }
+
             else//各类符号
+            {
                 expression = 4;
+                lex.begin.con = con;
+                lex.begin.line = line;
+            }
             break;
         case 1://保留字和标识符
             if (isalnum(t) || t == '_')
@@ -301,6 +325,7 @@ int analyzer(char* text, char* argv[])
                 lex_push_back(&lex, t);
                 expression = 1;
                 i++;
+                con++;
             }
             else if (t == ' ')
             {
@@ -319,6 +344,7 @@ int analyzer(char* text, char* argv[])
                 lex_push_back(&lex, t);
                 expression = 2;
                 i++;
+                con++;
             }
             else if (t == ' ')
             {
@@ -332,8 +358,10 @@ int analyzer(char* text, char* argv[])
             }
             break;
         case 3://token结束时为空格，token正常结束
+            lex.end.con = con;
+            lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
-            printf("get %s\t", lex.lex);
+            printf("get %s\t", tokenlist->tail->lex);
             lex.now = 0;
             lex.lex[0] = '\0';
             i++;
@@ -346,22 +374,28 @@ int analyzer(char* text, char* argv[])
             {
                 expression = 6;
                 i++;
+                con++;
                 break;
             }
             else
             {
                 lex.type = TOKEN_OPERATOR;
+                lex.end.con = con + 1;
+                lex.end.line = line;
                 tokenlist_pushback(tokenlist, &lex);
-                printf("get %s\t", lex.lex);
+                printf("get %s\t", tokenlist->tail->lex);
                 lex.now = 0;
                 lex.lex[0] = '\0';
                 i++;
+                con++;
                 expression = 0;
             }
             break;
         case 5://这个字符送进first word 重新处理
+            lex.end.con = con;
+            lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
-            printf("get %s\t", lex.lex);
+            printf("get %s\t", tokenlist->tail->lex);
             lex.now = 0;
             lex.lex[0] = '\0';
             lex.type = TOKEN_;
@@ -385,6 +419,7 @@ int analyzer(char* text, char* argv[])
             else
             {
                 i++;
+                con++;
                 expression = 6;
                 break;
             }
@@ -406,7 +441,7 @@ int analyzer(char* text, char* argv[])
                 token* temp = tokenlist->head;
                 while (temp->next != NULL)
                 {
-                    fprintf(out, "{%s, %d,(begin lin: %d con: %d , end lin: %d con: %d)}\t", temp->next->lex, temp->next->syn, temp->next->begin.line, temp->next->begin.con, temp->next->end.line, temp->next->end.con);
+                    fprintf(out, "{%s, %d,(begin lin: %d con: %d , end lin: %d con: %d)}\n", temp->next->lex, temp->next->syn, temp->next->begin.line, temp->next->begin.con, temp->next->end.line, temp->next->end.con);
                     temp = temp->next;
                 }
                 fprintf(out, "\n");
@@ -418,7 +453,7 @@ int analyzer(char* text, char* argv[])
             }
             else
             {
-                printf("非预期的字符");
+                printf("非预期的字符于 line: %d con: %d\n", lex.end.line, lex.end.con);
                 exit(1);
             }
         default:
@@ -427,35 +462,6 @@ int analyzer(char* text, char* argv[])
 
     }
 }
-
-
-
-typedef enum
-{
-    // 关键字
-    DATA_SIGNED, DATA_UNSIGNED,
-    DATA_CHAR, DATA_SHORT, DATA_INT, DATA_LONG,
-    DATA_FLOAT, DATA_DOUBLE,
-    DATA_STRUCT, DATA_UNION, DATA_ENUM, DATA_VOID,
-    DATA_IF, DATA_ELSE, DATA_SWITCH, DATA_CASE, DATA_DEFAULT,
-    DATA_WHILE, DATA_DO, DATA_FOR,
-    DATA_BREAK, DATA_CONTINUE, DATA_RETURN, DATA_GOTO,
-    DATA_CONST, DATA_SIZEOF, DATA_TYPEDEF,
-} DataType;
-
-
-typedef union
-{
-    int _int;
-}variable_value;
-
-typedef  struct
-{
-    TokenType type;
-    DataType data_type;
-    char* name;
-    variable_value value;
-}Token;
 
 int main(int argc, char* argv[])
 {
