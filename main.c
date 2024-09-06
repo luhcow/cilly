@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+//feature 
 
 #include <stdio.h>
 #include <ctype.h>
@@ -7,7 +7,7 @@
 
 #define keywords_MAX  33
 #define operators_MAX  41
-//feature 1. 内存管理
+
 
 const char* keywords[keywords_MAX] = {
     // 字面值: 标识符, 字符, 字符串, 数字
@@ -361,7 +361,6 @@ int analyzer(char* text, char* argv[])
             lex.end.con = con;
             lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
-            printf("get %s\t", tokenlist->tail->lex);
             lex.now = 0;
             lex.lex[0] = '\0';
             i++;
@@ -383,7 +382,6 @@ int analyzer(char* text, char* argv[])
                 lex.end.con = con + 1;
                 lex.end.line = line;
                 tokenlist_pushback(tokenlist, &lex);
-                printf("get %s\t", tokenlist->tail->lex);
                 lex.now = 0;
                 lex.lex[0] = '\0';
                 i++;
@@ -395,7 +393,6 @@ int analyzer(char* text, char* argv[])
             lex.end.con = con;
             lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
-            printf("get %s\t", tokenlist->tail->lex);
             lex.now = 0;
             lex.lex[0] = '\0';
             lex.type = TOKEN_;
@@ -483,7 +480,6 @@ int main(int argc, char* argv[])
     }
     while ((ch = getc(fp)) != EOF)
     {
-        putchar(ch);
         text[count] = ch;
         count++;
         if (count == text_size)
@@ -502,14 +498,7 @@ int main(int argc, char* argv[])
     fclose(fp);
     printf("File %s has %lu characters\n", argv[1], count);
 
-
     clear_comments(text, count);
-    printf("\n已经行删除\n");
-    for (int l = 0; text[l] != '\0'; l++)
-    {
-        putchar(text[l]);
-    }
-    printf("\n已经行删除\n");
 
     analyzer(text, argv);
 
