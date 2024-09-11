@@ -1,5 +1,5 @@
-//feature   2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
-
+//feature  1. 使用安全函数 2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -195,7 +195,9 @@ int clear_comments(char text[], int count)
                 }
             }
             if (text[i] != '\n')
+            {
                 text[i] = ' ';
+            }
             i++;
             break;
         default:
@@ -316,7 +318,7 @@ int analyzer(char* text, char* argv[])
                 lex.begin.con = con;
                 lex.begin.line = line;
             }
-            else if (isspace(t))//空白，制表符空白符已按照异常处理
+            else if (isspace(t))//空白
             {
                 i++;//第一个就是space跳过就行了
                 con++;
@@ -380,6 +382,12 @@ int analyzer(char* text, char* argv[])
             lex.now = 0;
             lex.lex[0] = '\0';
             i++;
+            con++;
+            if (t == '\n')
+            {
+                con = 1;
+                line++;
+            }
             expression = 0;
 
             break;
