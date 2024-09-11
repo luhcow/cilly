@@ -1,4 +1,4 @@
-//feature  1. 使用安全函数 2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
+//feature  2. 不同进制的数字字面量 3. 更好的识别非法字符 4. 真正的错误处理 5. 整理代码
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <ctype.h>
@@ -82,6 +82,8 @@ typedef enum
     // 辅助Token
     TOKEN_ERROR, TOKEN_EOF, TOKEN_, TOKEN_KEYWORD, TOKEN_OPERATOR
 } TokenType;
+
+enum { FIRST_WORD, KEYWORD, NUMBER, SPACE_END, OPERATOR, OTHER_END, CHAR, ERROR };
 
 struct line_con
 {
@@ -303,7 +305,7 @@ int analyzer(char* text, char* argv[])
 
         switch (expression)
         {
-        case 0:
+        case FIRST_WORD:
             if (!isprint(t) && t != '\n' && t != '\t')//非打印字符
                 expression = 8;
             else if (isalpha(t) || t == '_')//保留字和标识符
@@ -337,7 +339,7 @@ int analyzer(char* text, char* argv[])
                 lex.begin.line = line;
             }
             break;
-        case 1://保留字和标识符
+        case KEYWORD://保留字和标识符
             if (isalnum(t) || t == '_')
             {
                 lex_push_back(&lex, t);
@@ -356,7 +358,7 @@ int analyzer(char* text, char* argv[])
                 expression = 5;
             }
             break;
-        case 2://数字
+        case NUMBER://数字
             if (isalnum(t))
             {
                 lex_push_back(&lex, t);
@@ -375,7 +377,7 @@ int analyzer(char* text, char* argv[])
                 expression = 5;
             }
             break;
-        case 3://token正常结束
+        case SPACE_END://token正常结束
             lex.end.con = con;
             lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
@@ -391,7 +393,7 @@ int analyzer(char* text, char* argv[])
             expression = 0;
 
             break;
-        case 4://!"#$%&'()*+,-./  :;<=>?@ [\]^_` {|}~ 直接pushback(),不是字符串就递交给token函数处理
+        case OPERATOR://!"#$%&'()*+,-./  :;<=>?@ [\]^_` {|}~ 直接pushback(),不是字符串就递交给token函数处理
             lex_push_back(&lex, t);
             if (t == '\"' || t == '\'')
             {
@@ -413,7 +415,7 @@ int analyzer(char* text, char* argv[])
                 expression = 0;
             }
             break;
-        case 5://这个字符送进first word 重新处理
+        case OTHER_END://这个字符送进first word 重新处理
             lex.end.con = con;
             lex.end.line = line;
             tokenlist_pushback(tokenlist, &lex);
@@ -423,7 +425,7 @@ int analyzer(char* text, char* argv[])
             expression = 0;
 
             break;
-        case 6://字符串处理，第一个引号已经在 case 4 处理		
+        case CHAR://字符串处理，第一个引号已经在 case 4 处理		
             lex_push_back(&lex, t);
             if (t == '\"' && lex.lex[lex.now - 1] != '//')//字符串结束，这个 text 已经 pushback 了
             {
