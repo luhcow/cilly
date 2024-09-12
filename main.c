@@ -472,6 +472,7 @@ int analyzer(char* text, char* argv[])
                 // 收尾工作
                 if (fclose(out) != 0)
                     fprintf(stderr, "Error in closing files\n");
+                printf("生成文件于 %s", name);
                 return 0;
             }
             else
@@ -486,17 +487,16 @@ int analyzer(char* text, char* argv[])
     }
 }
 
-const int text_size = 1000000;
-
 int main(int argc, char* argv[])
 {
-    char* text = (char*)malloc(text_size * sizeof(char));
-    int ch;            // 读取文件时，存储每个字符的地方
-    FILE* fp;        // “文件指针”
-    unsigned long count = 0;
+    char* text;
+    long int count = 0;
+    FILE* fp;
+
     if (argc != 2)
     {
         printf("Usage: %s filename\n", argv[0]);
+        printf("你需要指定要读取文件的路径\n");
         exit(EXIT_FAILURE);
     }
     if ((fp = fopen(argv[1], "r")) == NULL)
@@ -504,25 +504,20 @@ int main(int argc, char* argv[])
         printf("Can't open %s\n", argv[1]);
         exit(EXIT_FAILURE);
     }
-    while ((ch = getc(fp)) != EOF)
-    {
-        text[count] = ch;
-        count++;
-        if (count == text_size)
-        {
-            char* p = (char*)realloc(text, (text_size + 1000000) * sizeof(char));
-            if (p != NULL)
-                text = p;
-            else
-            {
-                printf("Error in realloc\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
+
+    fseek(fp, 0, SEEK_END);
+    count = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    if (count < 0)
+        exit(EXIT_FAILURE);
+    text = (char*)malloc((count + 1) * sizeof(char));
+    if (text == NULL)
+        exit(EXIT_FAILURE);
+
+    fread(text, 1, count, fp);
     text[count] = '\0';
     fclose(fp);
-    printf("File %s has %lu characters\n", argv[1], count);
+    printf("File %s has %ld characters\n", argv[1], count);
 
     clear_comments(text, count);
 
